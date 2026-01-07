@@ -1,5 +1,8 @@
 # Subs
 
+> [!NOTE]
+> Entrypoint for this program is at `hello.py`. I'll change this later to main later but hello is cute :))
+
 This is a script that utilized Whisper API and OpenAI to transcribe and translate subtitles from English to Chinese.
 
 It is currently under development, and the goal is to turn this into a lightweight desktop app, and enable concurrent processing.
