@@ -14,7 +14,7 @@ def main() -> None:
 
     # We first define the input file path.
 
-    input_file_path: str = "/Users/anjie.wav/Downloads/jeff-谈抑郁&心理治疗.mov"
+    input_file_path: str = ""
 
     # We also define the final output path where subtitles will be saved.
     # This is determined by creating a new file path in the same directory as the input file, with the same name but with a .srt extension.
