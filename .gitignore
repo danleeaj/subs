@@ -1,0 +1,22 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+.DS_Store
+
+# Virtual environments
+.venv/
+
+# Environment variables
+.env
+
+# Jupyter Notebook related files
+.ipynb_checkpoints
+*.ipynb
+
+# Temp files
+temp/
