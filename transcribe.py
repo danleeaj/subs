@@ -19,7 +19,7 @@ from typing import Callable, Optional
 
 def transcribe_video(
     input_file_path: str,
-    progress_callback: Optional[Callable[[str], None]] = None
+    progress_callback: Optional[Callable[[str, int], None]] = None
 ) -> tuple[Path, Path, Path]:
     """
     Transcribe a video file and generate subtitle files.
@@ -27,6 +27,7 @@ def transcribe_video(
     Args:
         input_file_path: Path to the input video file.
         progress_callback: Optional callback function to receive progress updates.
+            Takes (message: str, percent: int) as arguments.
 
     Returns:
         Tuple of paths to the generated subtitle files (english, chinese, bilingual).
@@ -35,11 +36,11 @@ def transcribe_video(
         RuntimeError: If ffmpeg setup fails.
         Exception: If video to audio conversion fails.
     """
-    def update_progress(message: str):
+    def update_progress(message: str, percent: int):
         """Send progress update if callback is provided."""
         if progress_callback:
-            progress_callback(message)
-        print(message)
+            progress_callback(message, percent)
+        print(f"[{percent}%] {message}")
 
     # Define the final output path where subtitles will be saved.
     input_path: Path = Path(input_file_path)
@@ -73,35 +74,35 @@ def transcribe_video(
     try:
         static_ffmpeg.add_paths()
     except Exception as e:
-        update_progress(f"Failed to add ffmpeg paths: {e}")
+        update_progress(f"Failed to add ffmpeg paths: {e}", 0)
         raise RuntimeError("ffmpeg setup failed.")
 
     # Step 1: Convert video to audio.
-    update_progress("Converting video to audio...")
+    update_progress("Converting video to audio...", 0)
     try:
         TEMP_DIR_AUDIO_FILE.mkdir(exist_ok=True)
         v2a.convert_video_to_audio(input_file_path, TEMP_FILE_AUDIO_FILE)
-        update_progress("Audio extraction complete")
+        update_progress("Audio extraction complete", 15)
     except RuntimeError as e:
-        update_progress(f"Failed to convert video to audio: {e}")
+        update_progress(f"Failed to convert video to audio: {e}", 0)
         _cleanup_temp_directory(TEMP_DIRECTORY)
         raise Exception("Failed to convert video to audio. Please ensure the input file is valid.")
 
     # Step 2: Chunk audio file, if necessary.
-    update_progress("Processing audio...")
+    update_progress("Processing audio...", 15)
     TEMP_DIR_AUDIO_CHUNKS.mkdir(exist_ok=True)
     preprocess_audio(TEMP_FILE_AUDIO_FILE, TEMP_DIR_AUDIO_CHUNKS)
-    update_progress("Audio processing complete")
+    update_progress("Audio processing complete", 25)
 
     # Clean up step 1 temp files.
     TEMP_FILE_AUDIO_FILE.unlink()
     TEMP_DIR_AUDIO_FILE.rmdir()
 
     # Step 3: Transcribe audio chunks using Whisper API.
-    update_progress("Transcribing audio with Whisper...")
+    update_progress("Transcribing audio with Whisper...", 25)
     TEMP_DIR_WHISPER_OUTPUT.mkdir(exist_ok=True)
     create_transcription(TEMP_DIR_AUDIO_CHUNKS, TEMP_DIR_WHISPER_OUTPUT, client)
-    update_progress("Transcription complete")
+    update_progress("Transcription complete", 55)
 
     # Clean up step 2 temp files.
     for chunk_file in TEMP_DIR_AUDIO_CHUNKS.iterdir():
@@ -109,12 +110,12 @@ def transcribe_video(
     TEMP_DIR_AUDIO_CHUNKS.rmdir()
 
     # Step 4: Process and merge transcriptions.
-    update_progress("Merging transcriptions...")
+    update_progress("Merging transcriptions...", 55)
     TEMP_DIR_SRT_OUTPUT.mkdir(exist_ok=True)
     combined_transcription = process_transcription(TEMP_DIR_WHISPER_OUTPUT)
     with open(TEMP_FILE_SRT_OUTPUT, "w", encoding="utf-8") as srt_output_file:
         srt_output_file.write(combined_transcription.to_srt())
-    update_progress("Transcription merging complete")
+    update_progress("Transcription merging complete", 65)
 
     # Clean up step 3 temp files.
     for srt_file in TEMP_DIR_WHISPER_OUTPUT.iterdir():
@@ -122,15 +123,15 @@ def transcribe_video(
     TEMP_DIR_WHISPER_OUTPUT.rmdir()
 
     # Step 5: Translate subtitles to Chinese.
-    update_progress("Translating to Chinese...")
+    update_progress("Translating to Chinese...", 65)
     TEMP_DIR_TRANSLATED_SRT_OUTPUT.mkdir(exist_ok=True)
     combined_transcription.translate_subtitles(target_language="Chinese", client=client)
     with open(TEMP_FILE_TRANSLATED_SRT_OUTPUT, "w", encoding="utf-8") as translated_srt_output_file:
         translated_srt_output_file.write(combined_transcription.to_srt())
-    update_progress("Translation complete")
+    update_progress("Translation complete", 90)
 
     # Step 6: Save final outputs.
-    update_progress("Saving subtitle files...")
+    update_progress("Saving subtitle files...", 90)
 
     # Save English subtitles
     with open(output_srt_english, "w", encoding="utf-8") as f:
@@ -147,7 +148,7 @@ def transcribe_video(
     # Clean up remaining temp files
     _cleanup_temp_directory(TEMP_DIRECTORY)
 
-    update_progress("Done!")
+    update_progress("Done!", 100)
 
     return output_srt_english, output_srt_chinese, output_srt_bilingual
 

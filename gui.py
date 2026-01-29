@@ -245,14 +245,27 @@ class TranscriptionGUI:
 
         for i, file_path in enumerate(self.files):
             file_num = i + 1
+            # Calculate base progress for this file (each file gets an equal portion)
+            file_base_progress = (i / total_files) * 100
+            file_portion = 100 / total_files
+
             self._update_status(f"Processing {file_num}/{total_files}: {file_path.name}")
-            self._update_progress((i / total_files) * 100)
+            self._update_progress(file_base_progress)
+
+            def make_progress_callback(base: float, portion: float, num: int, name: str):
+                """Create a callback closure with captured values."""
+                def callback(msg: str, percent: int):
+                    # Calculate overall progress: base + (step_percent * file_portion / 100)
+                    overall_progress = base + (percent * portion / 100)
+                    self._update_progress(overall_progress)
+                    self._update_status(f"[{num}/{total_files}] {name}: {msg}")
+                return callback
 
             try:
                 transcribe_video(
                     str(file_path),
-                    progress_callback=lambda msg: self._update_status(
-                        f"[{file_num}/{total_files}] {file_path.name}: {msg}"
+                    progress_callback=make_progress_callback(
+                        file_base_progress, file_portion, file_num, file_path.name
                     )
                 )
                 self._update_status(f"Completed {file_num}/{total_files}: {file_path.name}")
