@@ -10,4 +10,9 @@ dependencies = [
     "pydantic>=2.12.5",
     "pydub>=0.25.1",
     "static-ffmpeg>=2.13",
+    "tkinterdnd2>=0.4.2",
 ]
+
+[project.scripts]
+subs = "transcribe:main"
+subs-gui = "gui:main"
