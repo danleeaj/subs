@@ -10,6 +10,7 @@ from pathlib import Path
 from uuid import uuid4
 import shutil
 import os
+import logging
 
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -18,6 +19,12 @@ from models import Transcription
 from process_transcription import create_transcription, process_transcription
 
 load_dotenv()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Subtitle API")
 client = OpenAI()
@@ -51,6 +58,8 @@ async def transcribe(
     chunks_dir = job_dir / "chunks"
     whisper_dir = job_dir / "whisper"
     
+    logger.info(f"Starting transcription job {job_id} with {len(files)} files, target_language={target_language}")
+    
     try:
         chunks_dir.mkdir(parents=True)
         whisper_dir.mkdir(parents=True)
@@ -61,14 +70,22 @@ async def transcribe(
             with open(chunk_path, "wb") as f:
                 shutil.copyfileobj(file.file, f)
         
+        logger.info(f"Job {job_id}: Saved {len(files)} chunks, starting Whisper transcription")
+        
         # Transcribe with Whisper
         create_transcription(chunks_dir, whisper_dir, client)
+        
+        logger.info(f"Job {job_id}: Whisper transcription complete, processing SRT files")
         
         # Process and merge
         combined = process_transcription(whisper_dir)
         
+        logger.info(f"Job {job_id}: Merged {len(combined.subtitles)} subtitles, starting translation")
+        
         # Translate
         combined.translate_subtitles(target_language=target_language, client=client)
+        
+        logger.info(f"Job {job_id}: Translation complete, returning response")
         
         return TranscriptionResponse(
             english_srt=combined.to_srt(),
@@ -77,6 +94,7 @@ async def transcribe(
         )
     
     except Exception as e:
+        logger.error(f"Job {job_id}: Error during transcription - {type(e).__name__}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
     
     finally:
