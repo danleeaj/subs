@@ -3,7 +3,8 @@
 from pydantic import BaseModel, Field
 from typing import Optional
 import re
-import json
+
+from prompts import get_translation_prompt
 
 
 class Translation(BaseModel):
@@ -106,27 +107,12 @@ class Transcription(BaseModel):
             texts_to_translate = [{'id': s.index, 'text': s.text} for s in batch]
             context_after = [{'id': s.index, 'text': s.text} for s in next_ctx]
             
-            prompt = f"""
-Translate subtitle dialogue to {target_language}.
-
-CONTEXT (PREVIOUS - DO NOT TRANSLATE):
-{json.dumps(context_before, indent=2) if context_before else "None"}
-
-INPUT TO TRANSLATE:
-{json.dumps(texts_to_translate, indent=2)}
-
-CONTEXT (NEXT - DO NOT TRANSLATE):
-{json.dumps(context_after, indent=2) if context_after else "None"}
-
-INSTRUCTIONS:
-- ONLY translate the subtitles in "INPUT TO TRANSLATE"
-- Use context for dialogue continuity
-- Preserve line breaks (\\n)
-- Keep translations concise
-
-OUTPUT (JSON):
-[{{"id": 1, "text": "translated"}}]
-"""
+            prompt = get_translation_prompt(
+                target_language=target_language,
+                context_before=context_before,
+                texts_to_translate=texts_to_translate,
+                context_after=context_after
+            )
             
             response = client.responses.parse(
                 model="gpt-4o-mini-2024-07-18",
